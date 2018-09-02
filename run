@@ -1,0 +1,48 @@
+#!/bin/bash
+set -euo pipefail;
+export PATH="$HOME/.deno/bin:$PATH";
+
+main() {
+    ensure_deno 0.1.2;
+
+    deno ./main.ts;
+}
+
+version_lte() {
+    [  "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+}
+
+ensure_deno() {
+    min_version="${1:-0}";
+
+    RESTORE="$(echo -en "\033[0m")";
+    RED="$(echo -en "\033[00;31m")";
+    YELLOW="$(echo -en "\033[00;33m")";
+    MAGENTA="$(echo -en "\033[00;35m")";
+
+    deno_state="missing";
+    if hash deno 2>/dev/null; then
+        version="$(deno --version | grep "deno: ")";
+        version="${version/deno: /}";
+        if version_lte ${min_version} ${version}; then
+            deno_state="good";
+        else
+            deno_state="outdated ($version < $min_version)";
+        fi
+    fi
+
+    if [ "$deno_state" != "good" ]; then
+        read -p "${YELLOW}Deno is $deno_state. Install the latest release? Y/[n]?${RESTORE} " -n 1 -r;
+        echo;
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "${MAGENTA}";
+            curl -sSf https://raw.githubusercontent.com/denoland/deno/master/tools/install.py | python 1>&2;
+            echo "${RESTORE}";
+        elif [ "$deno_state" == "missing" ]; then
+            echo "${RED}Can't continue without Deno.${RESTORE}";
+            exit 1;
+        fi
+    fi
+}
+
+main;
